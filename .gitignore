@@ -1,0 +1,21 @@
+# Rust artifacts
+/target/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Temporary files
+/tmp/
+*.log

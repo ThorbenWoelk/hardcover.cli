@@ -1,0 +1,18 @@
+[package]
+name = "hc"
+version = "0.1.0"
+edition = "2024"
+description = "Hardcover.app CLI - manage your books from the terminal"
+repository = "https://github.com/ThorbenWoelk/hardcover.cli"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+reqwest = { version = "0.13", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+dotenvy = "0.15"
+anyhow = "1"
+tabled = "0.20"
+colored = "3"
+chrono = "0.4"
