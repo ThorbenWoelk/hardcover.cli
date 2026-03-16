@@ -19,3 +19,6 @@
 # Temporary files
 /tmp/
 *.log
+
+# Test data logs
+/data/

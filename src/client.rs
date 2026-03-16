@@ -2,11 +2,12 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde_json::{Value, json};
 
-const API_URL: &str = "https://api.hardcover.app/v1/graphql";
+const DEFAULT_API_URL: &str = "https://api.hardcover.app/v1/graphql";
 
 pub struct HardcoverClient {
     client: Client,
     token: String,
+    api_url: String,
 }
 
 impl HardcoverClient {
@@ -14,6 +15,15 @@ impl HardcoverClient {
         Self {
             client: Client::new(),
             token,
+            api_url: DEFAULT_API_URL.to_string(),
+        }
+    }
+
+    pub fn with_url(token: String, api_url: String) -> Self {
+        Self {
+            client: Client::new(),
+            token,
+            api_url,
         }
     }
 
@@ -26,7 +36,7 @@ impl HardcoverClient {
 
         let resp = self
             .client
-            .post(API_URL)
+            .post(&self.api_url)
             .header("Content-Type", "application/json")
             .header("Authorization", &self.token)
             .json(&body)
@@ -356,7 +366,7 @@ impl HardcoverClient {
     // --- User profile ---
 
     pub async fn user_by_username(&self, username: &str) -> Result<Value> {
-        let query = r#"query ($username: String!) {
+        let query = r#"query ($username: citext!) {
             users(where: { username: { _eq: $username } }, limit: 1) {
                 id username name bio location books_count
                 followers_count followed_users_count
@@ -443,18 +453,19 @@ impl HardcoverClient {
     // --- Reading Journals ---
 
     pub async fn my_journals(&self, book_id: Option<i64>, limit: i32) -> Result<Value> {
+        let me = self.me().await?;
+        let user_id = me["id"].as_i64().context("Could not get user ID")?;
+
         let query = r#"query ($limit: Int!, $where: reading_journals_bool_exp) {
-            me {
-                reading_journals(limit: $limit, order_by: {created_at: desc}, where: $where) {
-                    id event entry action_at book_id edition_id
-                    book { id title slug }
-                }
+            reading_journals(limit: $limit, order_by: {created_at: desc}, where: $where) {
+                id event entry action_at book_id edition_id
+                book { id title slug }
             }
         }"#;
 
-        let mut where_obj = json!({});
+        let mut where_obj = json!({ "user_id": { "_eq": user_id } });
         if let Some(bid) = book_id {
-            where_obj = json!({ "book_id": { "_eq": bid } });
+            where_obj["book_id"] = json!({ "_eq": bid });
         }
 
         let vars = json!({
@@ -463,7 +474,7 @@ impl HardcoverClient {
         });
 
         let data = self.query(query, Some(vars)).await?;
-        Ok(data["me"][0]["reading_journals"].clone())
+        Ok(data["reading_journals"].clone())
     }
 
     pub async fn create_journal(
@@ -706,15 +717,13 @@ impl HardcoverClient {
 
     pub async fn my_notifications(&self, limit: i32, offset: i32) -> Result<Value> {
         let query = r#"query ($limit: Int!, $offset: Int!) {
-            me {
-                notifications(limit: $limit, offset: $offset, order_by: {created_at: desc}) {
-                    id title description link created_at notification_type_id
-                }
+            notifications(limit: $limit, offset: $offset, order_by: {created_at: desc}) {
+                id title description link created_at notification_type_id
             }
         }"#;
         let vars = json!({ "limit": limit, "offset": offset });
         let data = self.query(query, Some(vars)).await?;
-        Ok(data["me"][0]["notifications"].clone())
+        Ok(data["notifications"].clone())
     }
 
     // --- Prompts ---
@@ -738,9 +747,20 @@ impl HardcoverClient {
     }
 
     pub async fn all_formats(&self) -> Result<Value> {
-        let query = r#"{ reading_formats(order_by: {name: asc}) { id name } }"#;
+        let query = r#"{ reading_formats(order_by: {format: asc}) { id format } }"#;
         let data = self.query(query, None).await?;
-        Ok(data["reading_formats"].clone())
+        let formats = data["reading_formats"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mut f| {
+                let name = f["format"].clone();
+                f["name"] = name;
+                f
+            })
+            .collect();
+        Ok(Value::Array(formats))
     }
 
     pub async fn all_publishers(&self, limit: i32, offset: i32) -> Result<Value> {
@@ -804,7 +824,7 @@ impl HardcoverClient {
             return Ok(Value::Array(vec![]));
         }
 
-        let query = r#"query ($ids: [bigint!]!) {
+        let query = r#"query ($ids: [Int!]!) {
             books(where: { id: { _in: $ids } }) {
                 id title slug rating users_count
                 cached_contributors cached_image
