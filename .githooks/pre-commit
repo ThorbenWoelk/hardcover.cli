@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+echo "Running pre-commit checks..."
+RUSTFLAGS="-D warnings" cargo check
+echo "Running tests..."
+cargo test
