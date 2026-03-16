@@ -4,20 +4,35 @@ A Rust CLI for interacting with the [Hardcover.app](https://hardcover.app) Graph
 
 ## Setup
 
-1. Get your API token from [hardcover.app/account/api](https://hardcover.app/account/api)
-2. Create a `.env` file in the project root:
-
-```
-HARDCOVER_API_KEY="Bearer <your-token>"
-```
-
-3. Install:
+1. Install:
 
 ```sh
 cargo install --path .
 ```
 
 This places the `hc` binary in `~/.cargo/bin/`, so you can run it from anywhere.
+
+2. Get your API token from [hardcover.app/account/api](https://hardcover.app/account/api)
+
+3. Log in:
+
+```sh
+hc login
+```
+
+This saves your token to `~/.config/hc/config.toml`.
+
+Alternatively, set the `HARDCOVER_API_KEY` environment variable (takes precedence over the config file):
+
+```sh
+export HARDCOVER_API_KEY="Bearer <your-token>"
+```
+
+To remove stored credentials:
+
+```sh
+hc logout
+```
 
 ## Commands
 

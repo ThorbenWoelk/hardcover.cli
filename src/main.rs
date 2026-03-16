@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use serde_json::json;
 
 use hc::client::HardcoverClient;
+use hc::config;
 use hc::display::*;
 
 #[derive(Parser)]
@@ -14,6 +15,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Authenticate with Hardcover (saves token to ~/.config/hc/config.toml)
+    Login,
+    /// Remove stored credentials
+    Logout,
     /// Show your profile
     Me,
     /// Search for books, authors, series, users, or lists
@@ -502,18 +507,25 @@ enum Commands {
 }
 
 fn build_client() -> Result<HardcoverClient> {
-    dotenvy::dotenv().ok();
-    let token = std::env::var("HARDCOVER_API_KEY")
-        .context("HARDCOVER_API_KEY not set. Add it to .env or export it.")?;
+    let token = config::resolve_api_key()?;
     Ok(HardcoverClient::new(token))
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    // Commands that don't require authentication
+    match &cli.command {
+        Commands::Login => return config::login_interactive(),
+        Commands::Logout => return config::logout(),
+        _ => {}
+    }
+
     let client = build_client()?;
 
     match cli.command {
+        Commands::Login | Commands::Logout => unreachable!(),
         Commands::Me => {
             let user = client.me().await?;
             print_user(&user);
