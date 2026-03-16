@@ -1,12 +1,9 @@
-mod client;
-mod display;
-
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde_json::json;
 
-use client::HardcoverClient;
-use display::*;
+use hc::client::HardcoverClient;
+use hc::display::*;
 
 #[derive(Parser)]
 #[command(name = "hc", about = "Hardcover.app CLI - manage your books")]

@@ -410,8 +410,8 @@ pub fn print_goals(goals: &Value) {
 
 pub fn print_feed(feed: &Value) {
     let arr = match feed.as_array() {
-        Some(a) => a,
-        None => {
+        Some(a) if !a.is_empty() => a,
+        _ => {
             println!("No activity.");
             return;
         }
