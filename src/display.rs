@@ -72,20 +72,13 @@ fn rating_stars(rating: f64) -> String {
 }
 
 pub fn print_user(user: &Value) {
-    println!(
-        "{} {}",
-        "User:".bold(),
-        get_str(user, "username").cyan()
-    );
+    println!("{} {}", "User:".bold(), get_str(user, "username").cyan());
     println!("{} {}", "ID:".bold(), get_int(user, "id"));
 }
 
 pub fn print_book_detail(book: &Value) {
     let title = get_str(book, "title");
-    let subtitle = book
-        .get("subtitle")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let subtitle = book.get("subtitle").and_then(|v| v.as_str()).unwrap_or("");
 
     println!("{}", title.bold().cyan());
     if !subtitle.is_empty() {
@@ -154,10 +147,7 @@ pub fn print_search_results(results: &Value, query_type: &str) {
         }
     };
 
-    let found = results
-        .get("found")
-        .and_then(|f| f.as_u64())
-        .unwrap_or(0);
+    let found = results.get("found").and_then(|f| f.as_u64()).unwrap_or(0);
     println!("{} results found\n", found.to_string().bold());
 
     for hit in hits {
@@ -168,22 +158,42 @@ pub fn print_search_results(results: &Value, query_type: &str) {
             "Author" => {
                 let name = get_str(doc, "name");
                 let books = get_int(doc, "books_count");
-                println!("  {} {} ({} books)", format!("[{id}]").dimmed(), name.bold(), books);
+                println!(
+                    "  {} {} ({} books)",
+                    format!("[{id}]").dimmed(),
+                    name.bold(),
+                    books
+                );
             }
             "Series" => {
                 let name = get_str(doc, "name");
                 let books = get_int(doc, "books_count");
-                println!("  {} {} ({} books)", format!("[{id}]").dimmed(), name.bold(), books);
+                println!(
+                    "  {} {} ({} books)",
+                    format!("[{id}]").dimmed(),
+                    name.bold(),
+                    books
+                );
             }
             "User" => {
                 let username = get_str(doc, "username");
                 let books = get_int(doc, "books_count");
-                println!("  {} {} ({} books)", format!("[{id}]").dimmed(), username.bold(), books);
+                println!(
+                    "  {} {} ({} books)",
+                    format!("[{id}]").dimmed(),
+                    username.bold(),
+                    books
+                );
             }
             "List" => {
                 let name = get_str(doc, "name");
                 let books = get_int(doc, "books_count");
-                println!("  {} {} ({} books)", format!("[{id}]").dimmed(), name.bold(), books);
+                println!(
+                    "  {} {} ({} books)",
+                    format!("[{id}]").dimmed(),
+                    name.bold(),
+                    books
+                );
             }
             "Character" => {
                 let name = get_str(doc, "name");
@@ -237,10 +247,7 @@ pub fn print_my_books(books: &Value) {
         let book = &ub["book"];
         let title = get_str(book, "title");
         let book_id = get_int(book, "id");
-        let status_id = ub
-            .get("status_id")
-            .and_then(|s| s.as_i64())
-            .unwrap_or(0) as i32;
+        let status_id = ub.get("status_id").and_then(|s| s.as_i64()).unwrap_or(0) as i32;
         let rating_val = ub.get("rating").and_then(|r| r.as_f64());
         let authors = author_names(book);
         let year = get_int(book, "release_year");
@@ -251,7 +258,11 @@ pub fn print_my_books(books: &Value) {
             .unwrap_or_else(|| "unrated".to_string());
 
         let owned = ub.get("owned").and_then(|o| o.as_bool()).unwrap_or(false);
-        let owned_str = if owned { " [OWNED]".green() } else { "".normal() };
+        let owned_str = if owned {
+            " [OWNED]".green()
+        } else {
+            "".normal()
+        };
 
         println!(
             "  {} {} ({}) - {} | {} | {}{}",
@@ -530,13 +541,13 @@ pub fn print_reads(reads: &Value, book_id: i64) {
     let arr = match reads.as_array() {
         Some(a) => a,
         None => {
-            println!("No read entries for book {}", book_id);
+            println!("No read entries for book {book_id}");
             return;
         }
     };
 
     if arr.is_empty() {
-        println!("No read entries for book {}", book_id);
+        println!("No read entries for book {book_id}");
         return;
     }
 
@@ -620,7 +631,7 @@ pub fn print_following(following: &Value) {
             if name.is_empty() {
                 String::new()
             } else {
-                format!("({})", name)
+                format!("({name})")
             },
         );
     }
@@ -628,25 +639,41 @@ pub fn print_following(following: &Value) {
 
 pub fn print_character(character: &Value) {
     let name = get_str(character, "name");
-    let bio = character.get("biography").and_then(|b| b.as_str()).unwrap_or("");
+    let bio = character
+        .get("biography")
+        .and_then(|b| b.as_str())
+        .unwrap_or("");
     let books_count = get_int(character, "books_count");
-    let lgtbq = character.get("is_lgbtq").and_then(|v| v.as_bool()).unwrap_or(false);
-    let poc = character.get("is_poc").and_then(|v| v.as_bool()).unwrap_or(false);
+    let lgtbq = character
+        .get("is_lgbtq")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let poc = character
+        .get("is_poc")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     println!("{}", name.bold().cyan());
     println!("{} {}", "ID:".bold(), get_int(character, "id"));
     println!("{} {}", "Slug:".bold(), get_str(character, "slug"));
-    
+
     let mut stats = format!("{books_count} books");
-    if lgtbq { stats.push_str(" | LGBTQ+"); }
-    if poc { stats.push_str(" | POC"); }
+    if lgtbq {
+        stats.push_str(" | LGBTQ+");
+    }
+    if poc {
+        stats.push_str(" | POC");
+    }
     println!("{} {}", "Info:".bold(), stats);
 
     if !bio.is_empty() {
         println!("\n{}", strip_html(bio).dimmed());
     }
 
-    if let Some(books) = character.get("book_characters").and_then(|bc| bc.as_array()) {
+    if let Some(books) = character
+        .get("book_characters")
+        .and_then(|bc| bc.as_array())
+    {
         if !books.is_empty() {
             println!("\n{}", "Books featuring this character:".bold());
             for bc in books {
@@ -654,7 +681,12 @@ pub fn print_character(character: &Value) {
                 let title = get_str(book, "title");
                 let id = get_int(book, "id");
                 let authors = author_names(book);
-                println!("  {} {} - {}", format!("[{id}]").dimmed(), title.bold(), authors);
+                println!(
+                    "  {} {} - {}",
+                    format!("[{id}]").dimmed(),
+                    title.bold(),
+                    authors
+                );
             }
         }
     }
@@ -674,7 +706,10 @@ pub fn print_tags(tags: &Value) {
         return;
     }
 
-    println!("{:<6} {:<30} {:<10} {:<10}", "ID", "Tag", "Count", "Category");
+    println!(
+        "{:<6} {:<30} {:<10} {:<10}",
+        "ID", "Tag", "Count", "Category"
+    );
     println!("{}", "-".repeat(60).dimmed());
 
     for tag in arr {
@@ -683,7 +718,13 @@ pub fn print_tags(tags: &Value) {
         let count = get_int(tag, "count");
         let cat = get_int(tag, "tag_category_id");
 
-        println!("{:<6} {:<30} {:<10} {:<10}", id.dimmed(), name.bold(), count, cat);
+        println!(
+            "{:<6} {:<30} {:<10} {:<10}",
+            id.dimmed(),
+            name.bold(),
+            count,
+            cat
+        );
     }
 }
 
@@ -742,9 +783,15 @@ pub fn print_editions(editions: &Value) {
         let isbn13 = get_str(ed, "isbn_13");
 
         println!("{} {}", format!("[{id}]").dimmed(), title.bold());
-        println!("  {} | {} pages | {} | {}", format.yellow(), pages, date, publisher);
+        println!(
+            "  {} | {} pages | {} | {}",
+            format.yellow(),
+            pages,
+            date,
+            publisher
+        );
         if isbn10 != "-" || isbn13 != "-" {
-            println!("  ISBN-10: {} | ISBN-13: {}", isbn10, isbn13);
+            println!("  ISBN-10: {isbn10} | ISBN-13: {isbn13}");
         }
         println!();
     }
@@ -774,7 +821,12 @@ pub fn print_edition_detail(ed: &Value) {
         let b_title = get_str(book, "title");
         let b_id = get_int(book, "id");
         let authors = author_names(book);
-        println!("  {} {} - {}", format!("[{b_id}]").dimmed(), b_title.bold(), authors);
+        println!(
+            "  {} {} - {}",
+            format!("[{b_id}]").dimmed(),
+            b_title.bold(),
+            authors
+        );
     }
 }
 
@@ -797,7 +849,12 @@ pub fn print_prompts(prompts: &Value) {
         let question = get_str(p, "question");
         let answers = get_int(p, "answers_count");
 
-        println!("  {} {} ({} answers)", format!("[{id}]").dimmed(), question.bold(), answers);
+        println!(
+            "  {} {} ({} answers)",
+            format!("[{id}]").dimmed(),
+            question.bold(),
+            answers
+        );
     }
 }
 
@@ -805,7 +862,7 @@ pub fn print_id_name_list(title: &str, items: &Value) {
     let arr = match items.as_array() {
         Some(a) => a,
         None => {
-            println!("No items found for {}.", title);
+            println!("No items found for {title}.");
             return;
         }
     };

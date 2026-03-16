@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const API_URL: &str = "https://api.hardcover.app/v1/graphql";
 
@@ -86,12 +86,7 @@ impl HardcoverClient {
         Ok(data["books"][0].clone())
     }
 
-    pub async fn my_books(
-        &self,
-        status_id: Option<i32>,
-        limit: i32,
-        offset: i32,
-    ) -> Result<Value> {
+    pub async fn my_books(&self, status_id: Option<i32>, limit: i32, offset: i32) -> Result<Value> {
         let query = r#"query ($limit: Int!, $offset: Int!, $where: user_books_bool_exp) {
             me {
                 user_books(limit: $limit, offset: $offset, order_by: {updated_at: desc}, where: $where) {
@@ -166,56 +161,15 @@ impl HardcoverClient {
         Ok(data["createBook"]["book"].clone())
     }
 
-    pub async fn insert_user_book(
-        &self,
-        book_id: i64,
-        status_id: i32,
-        rating: Option<f64>,
-        notes: Option<&str>,
-        date_added: Option<&str>,
-        edition_id: Option<i64>,
-        privacy: Option<i32>,
-        owned: Option<bool>,
-        review: Option<&str>,
-        recommended_for: Option<&str>,
-    ) -> Result<Value> {
+    pub async fn insert_user_book(&self, object: Value) -> Result<Value> {
         let query = r#"mutation ($object: UserBookCreateInput!) {
             insert_user_book(object: $object) { id status_id book { id title } }
         }"#;
-        let mut obj = json!({ "book_id": book_id, "status_id": status_id });
-        if let Some(r) = rating {
-            obj["rating"] = json!(r);
-        }
-        if let Some(n) = notes {
-            obj["private_notes"] = json!(n);
-        }
-        if let Some(d) = date_added {
-            obj["date_added"] = json!(d);
-        }
-        if let Some(e) = edition_id {
-            obj["edition_id"] = json!(e);
-        }
-        if let Some(p) = privacy {
-            obj["privacy_setting_id"] = json!(p);
-        }
-        if let Some(o) = owned {
-            obj["owned"] = json!(o);
-        }
-        if let Some(r) = review {
-            obj["review"] = json!(r);
-        }
-        if let Some(rf) = recommended_for {
-            obj["recommended_for"] = json!(rf);
-        }
-        let vars = json!({ "object": obj });
+        let vars = json!({ "object": object });
         self.query(query, Some(vars)).await
     }
 
-    pub async fn update_user_book(
-        &self,
-        user_book_id: i64,
-        updates: Value,
-    ) -> Result<Value> {
+    pub async fn update_user_book(&self, user_book_id: i64, updates: Value) -> Result<Value> {
         let query = r#"mutation ($id: Int!, $object: UserBookUpdateInput!) {
             update_user_book(id: $id, object: $object) { id status_id rating }
         }"#;
@@ -393,7 +347,8 @@ impl HardcoverClient {
                 results
             }
         }"#;
-        let vars = json!({ "q": search_query, "type": query_type, "per_page": per_page, "page": page });
+        let vars =
+            json!({ "q": search_query, "type": query_type, "per_page": per_page, "page": page });
         let data = self.query(query, Some(vars)).await?;
         Ok(data["search"]["results"].clone())
     }
@@ -423,7 +378,6 @@ impl HardcoverClient {
 
     // --- Follows ---
 
-
     pub async fn follow_entity(&self, followable_id: i64, followable_type: &str) -> Result<Value> {
         let query = r#"mutation ($id: Int!, $type: String!) {
             insert_follow(followable_id: $id, followable_type: $type) { id }
@@ -432,7 +386,11 @@ impl HardcoverClient {
         self.query(query, Some(vars)).await
     }
 
-    pub async fn unfollow_entity(&self, followable_id: i64, followable_type: &str) -> Result<Value> {
+    pub async fn unfollow_entity(
+        &self,
+        followable_id: i64,
+        followable_type: &str,
+    ) -> Result<Value> {
         let query = r#"mutation ($id: Int!, $type: String!) {
             delete_follow(followable_id: $id, followable_type: $type) { id }
         }"#;
@@ -539,11 +497,7 @@ impl HardcoverClient {
         self.query(query, Some(vars)).await
     }
 
-    pub async fn update_journal(
-        &self,
-        journal_id: i64,
-        updates: Value,
-    ) -> Result<Value> {
+    pub async fn update_journal(&self, journal_id: i64, updates: Value) -> Result<Value> {
         let query = r#"mutation ($id: Int!, $object: ReadingJournalUpdateType!) {
             update_reading_journal(id: $id, object: $object) { id event entry }
         }"#;
@@ -667,16 +621,19 @@ impl HardcoverClient {
     }
 
     pub async fn edition_by_isbn(&self, isbn: &str) -> Result<Option<Value>> {
-        let isbn_field = if isbn.len() == 10 { "isbn_10" } else { "isbn_13" };
+        let isbn_field = if isbn.len() == 10 {
+            "isbn_10"
+        } else {
+            "isbn_13"
+        };
         let query = format!(
             r#"query ($isbn: String!) {{
-                editions(where: {{ {}: {{ _eq: $isbn }} }}, limit: 1) {{
+                editions(where: {{ {isbn_field}: {{ _eq: $isbn }} }}, limit: 1) {{
                     id title edition_format pages release_date isbn_10 isbn_13
                     publisher {{ name }}
                     book {{ id title slug cached_contributors }}
                 }}
-            }}"#,
-            isbn_field
+            }}"#
         );
         let vars = json!({ "isbn": isbn });
         let data = self.query(&query, Some(vars)).await?;
@@ -718,7 +675,12 @@ impl HardcoverClient {
 
     // --- Tags ---
 
-    pub async fn all_tags(&self, category_id: Option<i32>, limit: i32, offset: i32) -> Result<Value> {
+    pub async fn all_tags(
+        &self,
+        category_id: Option<i32>,
+        limit: i32,
+        offset: i32,
+    ) -> Result<Value> {
         let query = r#"query ($limit: Int!, $offset: Int!, $where: tags_bool_exp) {
             tags(limit: $limit, offset: $offset, order_by: {count: desc}, where: $where) {
                 id tag slug count tag_category_id
@@ -792,16 +754,24 @@ impl HardcoverClient {
         Ok(data["publishers"].clone())
     }
 
-    pub async fn upsert_tags(&self, id: i64, tag_names: Vec<String>, entity_type: &str) -> Result<Value> {
+    pub async fn upsert_tags(
+        &self,
+        id: i64,
+        tag_names: Vec<String>,
+        entity_type: &str,
+    ) -> Result<Value> {
         let query = r#"mutation ($id: bigint!, $tags: [BasicTag]!, $type: String!) {
             upsert_tags(id: $id, tags: $tags, type: $type) {
                 success
             }
         }"#;
-        let tags = tag_names.into_iter().map(|name| {
-            json!({ "tag": name, "category": "Genre", "spoiler": false }) // Defaulting category for simplicity
-        }).collect::<Vec<_>>();
-        
+        let tags = tag_names
+            .into_iter()
+            .map(|name| {
+                json!({ "tag": name, "category": "Genre", "spoiler": false }) // Defaulting category for simplicity
+            })
+            .collect::<Vec<_>>();
+
         let vars = json!({
             "id": id,
             "tags": tags,
