@@ -534,7 +534,7 @@ async fn main() -> Result<()> {
                     print_edition_detail(&ed);
                     return Ok(());
                 } else {
-                    println!("No book found for ISBN: {}", isbn_val);
+                    println!("No book found for ISBN: {isbn_val}");
                     return Ok(());
                 }
             }
@@ -549,8 +549,15 @@ async fn main() -> Result<()> {
             };
             print_book_detail(&book);
         }
-        Commands::BookCreate { title, description, pages, date } => {
-            let book = client.create_book(&title, pages, date.as_deref(), description.as_deref()).await?;
+        Commands::BookCreate {
+            title,
+            description,
+            pages,
+            date,
+        } => {
+            let book = client
+                .create_book(&title, pages, date.as_deref(), description.as_deref())
+                .await?;
             println!("Created book: {} (ID: {})", book["title"], book["id"]);
         }
         Commands::Editions { book_id } => {
@@ -561,7 +568,7 @@ async fn main() -> Result<()> {
             if let Some(ed) = client.edition_by_isbn(&isbn).await? {
                 print_edition_detail(&ed);
             } else {
-                println!("No edition found for ISBN: {}", isbn);
+                println!("No edition found for ISBN: {isbn}");
             }
         }
         Commands::Author { author_id } => {
@@ -584,7 +591,11 @@ async fn main() -> Result<()> {
             };
             print_character(&character);
         }
-        Commands::Tags { category, limit, offset } => {
+        Commands::Tags {
+            category,
+            limit,
+            offset,
+        } => {
             let tags = client.all_tags(category, limit, offset).await?;
             print_tags(&tags);
         }
@@ -610,15 +621,19 @@ async fn main() -> Result<()> {
         }
         Commands::Follow { id, entity_type } => {
             client.follow_entity(id, &entity_type).await?;
-            println!("Followed {} {}", entity_type, id);
+            println!("Followed {entity_type} {id}");
         }
         Commands::Unfollow { id, entity_type } => {
             client.unfollow_entity(id, &entity_type).await?;
-            println!("Unfollowed {} {}", entity_type, id);
+            println!("Unfollowed {entity_type} {id}");
         }
-        Commands::Tag { id, entity_type, tags } => {
+        Commands::Tag {
+            id,
+            entity_type,
+            tags,
+        } => {
             client.upsert_tags(id, tags, &entity_type).await?;
-            println!("Updated tags for {} {}", entity_type, id);
+            println!("Updated tags for {entity_type} {id}");
         }
         Commands::MyBooks {
             status,
@@ -657,57 +672,44 @@ async fn main() -> Result<()> {
                 "Invalid status. Use: want-to-read/wtr, reading/cr, read/r, paused/p, dnf, ignored/i",
             )?;
 
+            let mut obj = json!({ "status_id": status_id });
+            if let Some(r) = rating {
+                obj["rating"] = json!(r);
+            }
+            if let Some(n) = &notes {
+                obj["private_notes"] = json!(n);
+            }
+            if let Some(d) = &date_added {
+                obj["date_added"] = json!(d);
+            }
+            if let Some(e) = edition_id {
+                obj["edition_id"] = json!(e);
+            }
+            if let Some(p) = privacy {
+                obj["privacy_setting_id"] = json!(p);
+            }
+            if let Some(o) = owned {
+                obj["owned"] = json!(o);
+            }
+            if let Some(r) = &review {
+                obj["review"] = json!(r);
+            }
+            if let Some(rf) = &recommended_for {
+                obj["recommended_for"] = json!(rf);
+            }
+
             if let Some(existing) = client.find_user_book_for_book(book_id).await? {
                 let ub_id = existing["id"].as_i64().unwrap();
-                let mut updates = json!({ "status_id": status_id });
-                if let Some(r) = rating {
-                    updates["rating"] = json!(r);
-                }
-                if let Some(n) = &notes {
-                    updates["private_notes"] = json!(n);
-                }
-                if let Some(d) = &date_added {
-                    updates["date_added"] = json!(d);
-                }
-                if let Some(e) = edition_id {
-                    updates["edition_id"] = json!(e);
-                }
-                if let Some(p) = privacy {
-                    updates["privacy_setting_id"] = json!(p);
-                }
-                if let Some(o) = owned {
-                    updates["owned"] = json!(o);
-                }
-                if let Some(r) = &review {
-                    updates["review"] = json!(r);
-                }
-                if let Some(rf) = &recommended_for {
-                    updates["recommended_for"] = json!(rf);
-                }
-                client.update_user_book(ub_id, updates).await?;
+                client.update_user_book(ub_id, obj).await?;
                 println!(
-                    "Updated status to \"{}\" for book {}",
-                    status_name(status_id),
-                    book_id
+                    "Updated status to \"{}\" for book {book_id}",
+                    status_name(status_id)
                 );
             } else {
-                client
-                    .insert_user_book(
-                        book_id,
-                        status_id,
-                        rating,
-                        notes.as_deref(),
-                        date_added.as_deref(),
-                        edition_id,
-                        privacy,
-                        owned,
-                        review.as_deref(),
-                        recommended_for.as_deref(),
-                    )
-                    .await?;
+                obj["book_id"] = json!(book_id);
+                client.insert_user_book(obj).await?;
                 println!(
-                    "Added book {} with status \"{}\"",
-                    book_id,
+                    "Added book {book_id} with status \"{}\"",
                     status_name(status_id)
                 );
             }
@@ -722,12 +724,10 @@ async fn main() -> Result<()> {
                 client
                     .update_user_book(ub_id, json!({ "rating": rating }))
                     .await?;
-                println!("Rated book {} as {:.1}", book_id, rating);
+                println!("Rated book {book_id} as {rating:.1}");
             } else {
                 anyhow::bail!(
-                    "Book {} is not in your library. Add it first with `hc set-status {} <status>`",
-                    book_id,
-                    book_id
+                    "Book {book_id} is not in your library. Add it first with `hc set-status {book_id} <status>`"
                 );
             }
         }
@@ -751,8 +751,7 @@ async fn main() -> Result<()> {
                 .find_user_book_for_book(book_id)
                 .await?
                 .context(format!(
-                    "Book {} not in library. Use `hc set-status {} <status>` first",
-                    book_id, book_id
+                    "Book {book_id} not in library. Use `hc set-status {book_id} <status>` first"
                 ))?;
             let ub_id = existing["id"].as_i64().unwrap();
 
@@ -798,15 +797,15 @@ async fn main() -> Result<()> {
             }
 
             client.update_user_book(ub_id, updates).await?;
-            println!("Updated book {}", book_id);
+            println!("Updated book {book_id}");
         }
         Commands::RemoveBook { book_id } => {
             if let Some(existing) = client.find_user_book_for_book(book_id).await? {
                 let ub_id = existing["id"].as_i64().unwrap();
                 client.delete_user_book(ub_id).await?;
-                println!("Removed book {} from your library", book_id);
+                println!("Removed book {book_id} from your library");
             } else {
-                println!("Book {} is not in your library", book_id);
+                println!("Book {book_id} is not in your library");
             }
         }
 
@@ -826,12 +825,19 @@ async fn main() -> Result<()> {
             let existing = client
                 .find_user_book_for_book(book_id)
                 .await?
-                .context(format!("Book {} not in library", book_id))?;
+                .context(format!("Book {book_id} not in library"))?;
             let ub_id = existing["id"].as_i64().unwrap();
             client
-                .add_book_read(ub_id, started.as_deref(), finished.as_deref(), edition_id, progress, pages)
+                .add_book_read(
+                    ub_id,
+                    started.as_deref(),
+                    finished.as_deref(),
+                    edition_id,
+                    progress,
+                    pages,
+                )
                 .await?;
-            println!("Added read entry for book {}", book_id);
+            println!("Added read entry for book {book_id}");
         }
         Commands::ReadUpdate {
             read_id,
@@ -842,17 +848,27 @@ async fn main() -> Result<()> {
             pages,
         } => {
             let mut updates = json!({});
-            if let Some(s) = started { updates["started_at"] = json!(s); }
-            if let Some(f) = finished { updates["finished_at"] = json!(f); }
-            if let Some(e) = edition_id { updates["edition_id"] = json!(e); }
-            if let Some(p) = progress { updates["progress"] = json!(p); }
-            if let Some(pp) = pages { updates["progress_pages"] = json!(pp); }
+            if let Some(s) = started {
+                updates["started_at"] = json!(s);
+            }
+            if let Some(f) = finished {
+                updates["finished_at"] = json!(f);
+            }
+            if let Some(e) = edition_id {
+                updates["edition_id"] = json!(e);
+            }
+            if let Some(p) = progress {
+                updates["progress"] = json!(p);
+            }
+            if let Some(pp) = pages {
+                updates["progress_pages"] = json!(pp);
+            }
             client.update_book_read(read_id, updates).await?;
-            println!("Updated read entry {}", read_id);
+            println!("Updated read entry {read_id}");
         }
         Commands::ReadDelete { read_id } => {
             client.delete_book_read(read_id).await?;
-            println!("Deleted read entry {}", read_id);
+            println!("Deleted read entry {read_id}");
         }
 
         // --- Journals ---
@@ -869,9 +885,16 @@ async fn main() -> Result<()> {
             privacy,
         } => {
             client
-                .create_journal(book_id, &event, entry.as_deref(), date.as_deref(), edition_id, privacy)
+                .create_journal(
+                    book_id,
+                    &event,
+                    entry.as_deref(),
+                    date.as_deref(),
+                    edition_id,
+                    privacy,
+                )
                 .await?;
-            println!("Created journal entry for book {}", book_id);
+            println!("Created journal entry for book {book_id}");
         }
         Commands::JournalUpdate {
             journal_id,
@@ -882,17 +905,27 @@ async fn main() -> Result<()> {
             privacy,
         } => {
             let mut updates = json!({});
-            if let Some(e) = event { updates["event"] = json!(e); }
-            if let Some(e) = entry { updates["entry"] = json!(e); }
-            if let Some(d) = date { updates["action_at"] = json!(d); }
-            if let Some(eid) = edition_id { updates["edition_id"] = json!(eid); }
-            if let Some(p) = privacy { updates["privacy_setting_id"] = json!(p); }
+            if let Some(e) = event {
+                updates["event"] = json!(e);
+            }
+            if let Some(e) = entry {
+                updates["entry"] = json!(e);
+            }
+            if let Some(d) = date {
+                updates["action_at"] = json!(d);
+            }
+            if let Some(eid) = edition_id {
+                updates["edition_id"] = json!(eid);
+            }
+            if let Some(p) = privacy {
+                updates["privacy_setting_id"] = json!(p);
+            }
             client.update_journal(journal_id, updates).await?;
-            println!("Updated journal entry {}", journal_id);
+            println!("Updated journal entry {journal_id}");
         }
         Commands::JournalDelete { journal_id } => {
             client.delete_journal(journal_id).await?;
-            println!("Deleted journal entry {}", journal_id);
+            println!("Deleted journal entry {journal_id}");
         }
 
         // --- Lists ---
@@ -924,9 +957,15 @@ async fn main() -> Result<()> {
             privacy,
         } => {
             client
-                .update_list(list_id, name.as_deref(), description.as_deref(), ranked, privacy)
+                .update_list(
+                    list_id,
+                    name.as_deref(),
+                    description.as_deref(),
+                    ranked,
+                    privacy,
+                )
                 .await?;
-            println!("Updated list {}", list_id);
+            println!("Updated list {list_id}");
         }
         Commands::ListAdd {
             list_id,
@@ -940,23 +979,23 @@ async fn main() -> Result<()> {
             let title = result["insert_list_book"]["book"]["title"]
                 .as_str()
                 .unwrap_or("unknown");
-            println!("Added \"{}\" to list {}", title, list_id);
+            println!("Added \"{title}\" to list {list_id}");
         }
         Commands::ListRemove { list_book_id } => {
             client.remove_list_book(list_book_id).await?;
-            println!("Removed entry {} from list", list_book_id);
+            println!("Removed entry {list_book_id} from list");
         }
         Commands::ListDelete { list_id } => {
             client.delete_list(list_id).await?;
-            println!("Deleted list {}", list_id);
+            println!("Deleted list {list_id}");
         }
         Commands::ListFollow { list_id } => {
             client.follow_list(list_id).await?;
-            println!("Followed list {}", list_id);
+            println!("Followed list {list_id}");
         }
         Commands::ListUnfollow { list_id } => {
             client.unfollow_list(list_id).await?;
-            println!("Unfollowed list {}", list_id);
+            println!("Unfollowed list {list_id}");
         }
 
         // --- Social ---
@@ -966,11 +1005,11 @@ async fn main() -> Result<()> {
         }
         Commands::Like { id, likeable_type } => {
             client.like(id, &likeable_type).await?;
-            println!("Liked {} {}", likeable_type, id);
+            println!("Liked {likeable_type} {id}");
         }
         Commands::Unlike { id, likeable_type } => {
             client.unlike(id, &likeable_type).await?;
-            println!("Unliked {} {}", likeable_type, id);
+            println!("Unliked {likeable_type} {id}");
         }
 
         // --- Profile ---
