@@ -153,6 +153,19 @@ hc isbn 9780441172719             # Show edition details by ISBN
 hc book-create "New Book"         # Create a new book entry in the database
 ```
 
+## Development
+
+### API Schema Synchronization
+
+This project tracks the [Hardcover API Schema](https://github.com/hardcoverapp/hardcover-docs/) to detect potential breaking changes.
+
+- **Automated Check**: A GitHub Action runs daily to compare our local `data/schema/schema.graphql` with the upstream version. If a drift is detected, it opens a GitHub Issue with a detailed `graphql-inspector` report.
+- **Manual Sync**: To manually update the local schema and acknowledge upstream changes:
+  ```bash
+  curl -s https://raw.githubusercontent.com/hardcoverapp/hardcover-docs/main/schema.graphql -o data/schema/schema.graphql
+  ```
+- **Validation**: When the schema changes, ensure all internal queries in `src/client.rs` are still compatible.
+
 ## Collaboration
 
 We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) standard for all commit messages. This helps in maintaining a clean and automated changelog.

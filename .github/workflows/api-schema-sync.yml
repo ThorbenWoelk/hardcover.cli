@@ -1,0 +1,89 @@
+name: API Schema Sync
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  sync-schema:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GraphQL Inspector
+        run: npm install -g @graphql-inspector/cli
+
+      - name: Fetch Latest Schema
+        run: |
+          curl -s https://raw.githubusercontent.com/hardcoverapp/hardcover-docs/main/schema.graphql -o schema_remote.graphql
+
+      - name: Compare Schemas
+        id: compare
+        run: |
+          if ! diff -q data/schema/schema.graphql schema_remote.graphql > /dev/null; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            diff -u data/schema/schema.graphql schema_remote.graphql > schema_diff.txt || true
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for Breaking Changes
+        if: steps.compare.outputs.changed == 'true'
+        id: inspector
+        run: |
+          # Use graphql-inspector to find breaking and dangerous changes
+          # We redirect output to a file to use it in the issue body
+          graphql-inspector diff data/schema/schema.graphql schema_remote.graphql > inspector_output.txt || true
+          echo "REPORT<<EOF" >> $GITHUB_ENV
+          cat inspector_output.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create GitHub Issue
+        if: steps.compare.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('schema_diff.txt', 'utf8').substring(0, 5000); // Limit size
+            const inspectorReport = process.env.REPORT || 'No inspector report generated.';
+
+            const body = `
+            ## 🚨 Hardcover API Schema Change Detected
+
+            The remote schema at \`hardcoverapp/hardcover-docs\` has diverged from our local version.
+
+            ### 🔍 GraphQL Inspector Report
+            \`\`\`
+            ${inspectorReport}
+            \`\`\`
+
+            ### 📝 Raw Diff (First 5k chars)
+            \`\`\`diff
+            ${diff}
+            \`\`\`
+
+            **Action Required:**
+            1. Review the changes above.
+            2. Run \`curl -s https://raw.githubusercontent.com/hardcoverapp/hardcover-docs/main/schema.graphql -o data/schema/schema.graphql\` locally.
+            3. Update the CLI queries if needed.
+            4. Commit the new schema to \`main\`.
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'chore(api): Schema update detected',
+              body: body.trim(),
+              labels: ['api-change', 'automated']
+            });

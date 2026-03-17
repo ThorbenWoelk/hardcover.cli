@@ -21,4 +21,6 @@
 *.log
 
 # Test data logs
-/data/
+/data/*
+!/data/schema/
+!/data/schema/schema.graphql
